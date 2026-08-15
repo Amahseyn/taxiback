@@ -1,0 +1,403 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                 String          @id @default(uuid())
+  email              String          @unique
+  passwordHash       String
+  firstName          String?
+  lastName           String?
+  phone              String?
+  isActive           Boolean         @default(true)
+  isPlatformAdmin    Boolean         @default(false)
+  forcePasswordReset Boolean         @default(false)
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+
+  tenants            UserTenant[]
+  passwordResets     PasswordReset[]
+  assignedJobs       Job[]
+
+  @@map("users")
+}
+
+model Tenant {
+  id                    String                 @id @default(uuid())
+  name                  String
+  slug                  String                 @unique
+  status                String                 @default("active")
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+
+  users                 UserTenant[]
+  customers             Customer[]
+  drivers               Driver[]
+  vehicleCategories     VehicleCategory[]
+  locations             Location[]
+  zones                 Zone[]
+  routePrices           RoutePrice[]
+  distanceTimePrices    DistanceTimePrice[]
+  surcharges            Surcharge[]
+  bookings              Booking[]
+  payments              Payment[]
+  notificationTemplates NotificationTemplate[]
+  notificationRules     NotificationRule[]
+  notificationLogs      NotificationLog[]
+  calendarFeeds         CalendarFeed[]
+  settings              Setting[]
+  files                 File[]
+
+  @@map("tenants")
+}
+
+model UserTenant {
+  id        String   @id @default(uuid())
+  userId    String
+  tenantId  String
+  role      String   @default("member")
+  status    String   @default("active")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, tenantId])
+  @@map("user_tenants")
+}
+
+model PasswordReset {
+  id        String    @id @default(uuid())
+  userId    String
+  token     String
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("password_resets")
+}
+
+model Customer {
+  id            String    @id @default(uuid())
+  tenantId      String
+  firstName     String
+  lastName      String
+  email         String
+  phone         String?
+  companyName   String?
+  vatNumber     String?
+  creditLimit   Float     @default(0.0)
+  creditBalance Float     @default(0.0)
+  notes         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  tenant        Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  bookings      Booking[]
+
+  @@map("customers")
+}
+
+model Driver {
+  id            String             @id @default(uuid())
+  tenantId      String
+  firstName     String
+  lastName      String
+  email         String
+  phone         String
+  status        String             @default("active")
+  licenseNumber String?
+  notes         String?
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+
+  tenant        Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  credentials   DriverCredential[]
+  jobs          Job[]
+
+  @@map("drivers")
+}
+
+model DriverCredential {
+  id        String    @id @default(uuid())
+  driverId  String
+  type      String
+  documentNo String?
+  expiresAt DateTime?
+  fileUrl   String?
+  status    String    @default("valid")
+  createdAt DateTime  @default(now())
+
+  driver    Driver    @relation(fields: [driverId], references: [id], onDelete: Cascade)
+
+  @@map("driver_credentials")
+}
+
+model VehicleCategory {
+  id          String   @id @default(uuid())
+  tenantId    String
+  name        String
+  description String?
+  capacityPax Int      @default(4)
+  capacityLug Int      @default(2)
+  basePrice   Float    @default(0.0)
+  perKmPrice  Float    @default(0.0)
+  perMinPrice Float    @default(0.0)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("vehicle_categories")
+}
+
+model Location {
+  id        String   @id @default(uuid())
+  tenantId  String
+  name      String
+  type      String   @default("address")
+  address   String
+  lat       Float?
+  lng       Float?
+  placeId   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("locations")
+}
+
+model Zone {
+  id        String   @id @default(uuid())
+  tenantId  String
+  name      String
+  geojson   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("zones")
+}
+
+model RoutePrice {
+  id             String   @id @default(uuid())
+  tenantId       String
+  fromLocationId String
+  toLocationId   String
+  categoryId     String
+  price          Float
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  tenant         Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("route_prices")
+}
+
+model DistanceTimePrice {
+  id          String   @id @default(uuid())
+  tenantId    String
+  categoryId  String
+  minDistance Float    @default(0)
+  maxDistance Float
+  basePrice   Float
+  perKmRate   Float
+  createdAt   DateTime @default(now())
+
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("distance_time_prices")
+}
+
+model Surcharge {
+  id          String   @id @default(uuid())
+  tenantId    String
+  name        String
+  type        String
+  amount      Float
+  isPercentage Boolean  @default(false)
+  rulesJson   String   @default("{}")
+  createdAt   DateTime @default(now())
+
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("surcharges")
+}
+
+model Booking {
+  id              String            @id @default(uuid())
+  tenantId        String
+  bookingNumber   String            @unique
+  customerId      String?
+  status          String            @default("pending")
+  pickupAddress   String
+  dropoffAddress  String
+  pickupLat       Float?
+  pickupLng       Float?
+  dropoffLat      Float?
+  dropoffLng      Float?
+  pickupDateTime  DateTime
+  passengerCount  Int               @default(1)
+  luggageCount    Int               @default(0)
+  totalPrice      Float             @default(0.0)
+  currency        String            @default("USD")
+  notes           String?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  tenant          Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  customer        Customer?         @relation(fields: [customerId], references: [id])
+  stops           BookingStop[]
+  lineItems       BookingLineItem[]
+  jobs            Job[]
+  payments        Payment[]
+
+  @@map("bookings")
+}
+
+model BookingStop {
+  id        String   @id @default(uuid())
+  bookingId String
+  stopOrder Int
+  address   String
+  lat       Float?
+  lng       Float?
+
+  booking   Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@map("booking_stops")
+}
+
+model BookingLineItem {
+  id        String   @id @default(uuid())
+  bookingId String
+  label     String
+  amount    Float
+
+  booking   Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@map("booking_line_items")
+}
+
+model Job {
+  id          String    @id @default(uuid())
+  bookingId   String
+  driverId    String?
+  assignedById String?
+  status      String    @default("unassigned")
+  scheduledAt DateTime?
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  booking     Booking   @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  driver      Driver?   @relation(fields: [driverId], references: [id])
+  assignedBy  User?     @relation(fields: [assignedById], references: [id])
+
+  @@map("jobs")
+}
+
+model Payment {
+  id            String   @id @default(uuid())
+  tenantId      String
+  bookingId     String
+  amount        Float
+  status        String   @default("pending")
+  provider      String   @default("cash")
+  transactionId String?
+  createdAt     DateTime @default(now())
+
+  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  booking       Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@map("payments")
+}
+
+model NotificationTemplate {
+  id        String   @id @default(uuid())
+  tenantId  String
+  name      String
+  channel   String
+  subject   String?
+  body      String
+  createdAt DateTime @default(now())
+
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("notification_templates")
+}
+
+model NotificationRule {
+  id        String   @id @default(uuid())
+  tenantId  String
+  event     String
+  channel   String
+  enabled   Boolean  @default(true)
+
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("notification_rules")
+}
+
+model NotificationLog {
+  id        String   @id @default(uuid())
+  tenantId  String
+  channel   String
+  recipient String
+  content   String
+  status    String   @default("sent")
+  createdAt DateTime @default(now())
+
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("notification_logs")
+}
+
+model CalendarFeed {
+  id        String   @id @default(uuid())
+  tenantId  String
+  name      String
+  feedKey   String   @unique
+  createdAt DateTime @default(now())
+
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("calendar_feeds")
+}
+
+model Setting {
+  id        String   @id @default(uuid())
+  tenantId  String
+  key       String
+  value     String
+
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, key])
+  @@map("settings")
+}
+
+model File {
+  id        String   @id @default(uuid())
+  tenantId  String
+  filename  String
+  path      String
+  mimeType  String
+  size      Int
+  createdAt DateTime @default(now())
+
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("files")
+}
