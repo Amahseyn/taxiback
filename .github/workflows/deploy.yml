@@ -35,7 +35,7 @@ jobs:
             git fetch --all
             git checkout main || git checkout master
             git pull
-            npm ci --include=dev
+            npm ci --include=dev --ignore-scripts=false
             ./node_modules/.bin/prisma generate
             ./node_modules/.bin/prisma migrate deploy || echo "Prisma migrate deploy executed with warnings"
             npx pm2 start ecosystem.config.js --env production --only taxiback || npx pm2 reload ecosystem.config.js --env production --only taxiback
