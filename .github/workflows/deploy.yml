@@ -21,8 +21,8 @@ jobs:
       - name: Deploy backend with SSH and PM2
         uses: appleboy/ssh-action@v1.0.0
         with:
-          host: ${{ secrets.SSH_HOST || vars.SSH_HOST }}
-          username: ${{ secrets.SSH_USER || vars.SSH_USER }}
+          host: ${{ secrets.SSH_HOST || vars.SSH_HOST || '176.222.53.21' }}
+          username: ${{ secrets.SSH_USER || vars.SSH_USER || 'root' }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: ${{ secrets.SSH_PORT || 22 }}
           script: |
