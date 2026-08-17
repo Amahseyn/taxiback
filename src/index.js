@@ -26,7 +26,10 @@ const fileRoutes = require('./modules/files/files.routes');
 const app = express();
 
 app.use(helmet());
-app.use(cors({ origin: process.env.CORS_ORIGIN || true, credentials: true }));
+app.use(cors({
+  origin: (origin, callback) => callback(null, true),
+  credentials: true,
+}));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
