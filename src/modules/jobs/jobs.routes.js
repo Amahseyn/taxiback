@@ -3,7 +3,7 @@ const router = express.Router();
 const { authenticate, requireTenant } = require('../auth/auth.middleware');
 const { prisma } = require('../../utils/prisma');
 const { asyncHandler } = require('../../utils/async-handler');
-const { NotFoundError } = require('../../types/errors');
+
 
 router.use(authenticate);
 router.use(requireTenant);

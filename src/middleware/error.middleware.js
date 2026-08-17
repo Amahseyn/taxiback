@@ -1,6 +1,6 @@
 const { AppError } = require('../types/errors');
 
-const errorMiddleware = (err, req, res, next) => {
+const errorMiddleware = (err, req, res, _next) => {
   console.error('Error:', err);
 
   if (err instanceof AppError) {

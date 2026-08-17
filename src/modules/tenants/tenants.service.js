@@ -126,7 +126,7 @@ class TenantsService {
     return { message: 'Tenant deleted successfully' };
   }
 
-  static async inviteUser(tenantId, inviteData, inviterUser) {
+  static async inviteUser(tenantId, inviteData, _inviterUser) {
     const validated = inviteUserSchema.parse(inviteData);
 
     const tenant = await prisma.tenant.findUnique({ where: { id: tenantId } });

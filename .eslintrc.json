@@ -8,5 +8,8 @@
     "ecmaVersion": "latest",
     "sourceType": "script"
   },
-  "ignorePatterns": ["node_modules/", "dist/", "coverage/", "prisma/generated/"]
+  "ignorePatterns": ["node_modules/", "dist/", "coverage/", "prisma/generated/"],
+  "rules": {
+    "no-unused-vars": ["error", { "argsIgnorePattern": "^_" }]
+  }
 }
