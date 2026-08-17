@@ -35,6 +35,26 @@ jobs:
             git fetch --all
             git checkout main || git checkout master
             git pull
+
+            # Create default .env on server if it does not exist
+            if [ ! -f ".env" ]; then
+              if [ -f ".env.production" ]; then
+                cp .env.production .env
+              elif [ -f ".env.production.template" ]; then
+                cp .env.production.template .env
+              elif [ -f ".env.example" ]; then
+                cp .env.example .env
+              else
+                cat > .env << 'ENV_EOF'
+            NODE_ENV=production
+            PORT=5000
+            DATABASE_URL="postgresql://taxi_user:TaxiDb2026!SecurePass@127.0.0.1:5432/taxi_db?schema=public"
+            JWT_ACCESS_SECRET=e7bf9d91f2c2b3a88a0b12739281a8b9
+            JWT_REFRESH_SECRET=b81a8c9281a9c8b7e6d5c4b3a2918273
+            ENV_EOF
+              fi
+            fi
+
             npm ci --include=dev --ignore-scripts=false
             ./node_modules/.bin/prisma generate
             ./node_modules/.bin/prisma migrate deploy || echo "Prisma migrate deploy executed with warnings"
