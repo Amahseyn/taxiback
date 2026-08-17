@@ -9,11 +9,34 @@ router.use(authenticate);
 router.use(requireTenant);
 
 router.get('/', asyncHandler(async (req, res) => {
+  const { search, type } = req.query;
+  const where = { tenantId: req.user.activeTenantId };
+
+  if (type && type !== 'all') {
+    where.type = type;
+  }
+
+  if (search && search.trim()) {
+    const s = search.trim();
+    where.OR = [
+      { name: { contains: s, mode: 'insensitive' } },
+      { address: { contains: s, mode: 'insensitive' } },
+    ];
+  }
+
   const locations = await prisma.location.findMany({
-    where: { tenantId: req.user.activeTenantId },
+    where,
     orderBy: { createdAt: 'desc' },
   });
   res.json({ status: 'success', data: locations });
+}));
+
+router.get('/:id', asyncHandler(async (req, res) => {
+  const location = await prisma.location.findFirst({
+    where: { id: req.params.id, tenantId: req.user.activeTenantId },
+  });
+  if (!location) throw new NotFoundError('Location not found');
+  res.json({ status: 'success', data: location });
 }));
 
 router.post('/', asyncHandler(async (req, res) => {
@@ -26,7 +49,7 @@ router.post('/', asyncHandler(async (req, res) => {
       address,
       lat: lat ? parseFloat(lat) : null,
       lng: lng ? parseFloat(lng) : null,
-      placeId,
+      placeId: placeId || null,
     },
   });
   res.status(201).json({ status: 'success', data: location });
@@ -38,9 +61,17 @@ router.patch('/:id', asyncHandler(async (req, res) => {
   });
   if (!existing) throw new NotFoundError('Location not found');
 
+  const { name, type, address, lat, lng, placeId } = req.body;
   const updated = await prisma.location.update({
     where: { id: req.params.id },
-    data: req.body,
+    data: {
+      ...(name !== undefined && { name }),
+      ...(type !== undefined && { type }),
+      ...(address !== undefined && { address }),
+      ...(lat !== undefined && { lat: lat ? parseFloat(lat) : null }),
+      ...(lng !== undefined && { lng: lng ? parseFloat(lng) : null }),
+      ...(placeId !== undefined && { placeId }),
+    },
   });
   res.json({ status: 'success', data: updated });
 }));

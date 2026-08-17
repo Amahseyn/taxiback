@@ -23,13 +23,15 @@ router.post('/', asyncHandler(async (req, res) => {
   const updates = [];
 
   for (const [key, value] of Object.entries(settingsData)) {
-    updates.push(
-      prisma.setting.upsert({
-        where: { tenantId_key: { tenantId: req.user.activeTenantId, key } },
-        update: { value: String(value) },
-        create: { tenantId: req.user.activeTenantId, key, value: String(value) },
-      })
-    );
+    if (value !== undefined && value !== null) {
+      updates.push(
+        prisma.setting.upsert({
+          where: { tenantId_key: { tenantId: req.user.activeTenantId, key } },
+          update: { value: String(value) },
+          create: { tenantId: req.user.activeTenantId, key, value: String(value) },
+        })
+      );
+    }
   }
 
   await Promise.all(updates);

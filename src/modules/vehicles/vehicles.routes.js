@@ -9,11 +9,25 @@ router.use(authenticate);
 router.use(requireTenant);
 
 router.get('/categories', asyncHandler(async (req, res) => {
+  const { search } = req.query;
+  const where = { tenantId: req.user.activeTenantId };
+  if (search && search.trim()) {
+    where.name = { contains: search.trim(), mode: 'insensitive' };
+  }
+
   const categories = await prisma.vehicleCategory.findMany({
-    where: { tenantId: req.user.activeTenantId },
+    where,
     orderBy: { sortOrder: 'asc' },
   });
   res.json({ status: 'success', data: categories });
+}));
+
+router.get('/categories/:id', asyncHandler(async (req, res) => {
+  const category = await prisma.vehicleCategory.findFirst({
+    where: { id: req.params.id, tenantId: req.user.activeTenantId },
+  });
+  if (!category) throw new NotFoundError('Category not found');
+  res.json({ status: 'success', data: category });
 }));
 
 router.post('/categories', asyncHandler(async (req, res) => {
@@ -22,7 +36,7 @@ router.post('/categories', asyncHandler(async (req, res) => {
     data: {
       tenantId: req.user.activeTenantId,
       name,
-      description,
+      description: description || null,
       capacityPax: capacityPax ? parseInt(capacityPax) : 4,
       capacityLug: capacityLug ? parseInt(capacityLug) : 2,
       basePrice: basePrice ? parseFloat(basePrice) : 0,
@@ -40,9 +54,19 @@ router.patch('/categories/:id', asyncHandler(async (req, res) => {
   });
   if (!existing) throw new NotFoundError('Category not found');
 
+  const { name, description, capacityPax, capacityLug, basePrice, perKmPrice, perMinPrice, sortOrder } = req.body;
   const updated = await prisma.vehicleCategory.update({
     where: { id: req.params.id },
-    data: req.body,
+    data: {
+      ...(name !== undefined && { name }),
+      ...(description !== undefined && { description }),
+      ...(capacityPax !== undefined && { capacityPax: parseInt(capacityPax) }),
+      ...(capacityLug !== undefined && { capacityLug: parseInt(capacityLug) }),
+      ...(basePrice !== undefined && { basePrice: parseFloat(basePrice) }),
+      ...(perKmPrice !== undefined && { perKmPrice: parseFloat(perKmPrice) }),
+      ...(perMinPrice !== undefined && { perMinPrice: parseFloat(perMinPrice) }),
+      ...(sortOrder !== undefined && { sortOrder: parseInt(sortOrder) }),
+    },
   });
   res.json({ status: 'success', data: updated });
 }));

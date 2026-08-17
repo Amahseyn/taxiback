@@ -9,8 +9,26 @@ router.use(authenticate);
 router.use(requireTenant);
 
 router.get('/', asyncHandler(async (req, res) => {
+  const { search, status } = req.query;
+  const where = { tenantId: req.user.activeTenantId };
+
+  if (status && status !== 'all') {
+    where.status = status;
+  }
+
+  if (search && search.trim()) {
+    const s = search.trim();
+    where.OR = [
+      { firstName: { contains: s, mode: 'insensitive' } },
+      { lastName: { contains: s, mode: 'insensitive' } },
+      { email: { contains: s, mode: 'insensitive' } },
+      { phone: { contains: s, mode: 'insensitive' } },
+      { licenseNumber: { contains: s, mode: 'insensitive' } },
+    ];
+  }
+
   const drivers = await prisma.driver.findMany({
-    where: { tenantId: req.user.activeTenantId },
+    where,
     include: { credentials: true },
     orderBy: { createdAt: 'desc' },
   });
@@ -27,7 +45,7 @@ router.get('/:id', asyncHandler(async (req, res) => {
 }));
 
 router.post('/', asyncHandler(async (req, res) => {
-  const { firstName, lastName, email, phone, licenseNumber, notes } = req.body;
+  const { firstName, lastName, email, phone, licenseNumber, notes, status } = req.body;
   const driver = await prisma.driver.create({
     data: {
       tenantId: req.user.activeTenantId,
@@ -35,8 +53,9 @@ router.post('/', asyncHandler(async (req, res) => {
       lastName,
       email,
       phone,
-      licenseNumber,
-      notes,
+      licenseNumber: licenseNumber || null,
+      notes: notes || null,
+      status: status || 'active',
     },
   });
   res.status(201).json({ status: 'success', data: driver });
@@ -48,11 +67,54 @@ router.patch('/:id', asyncHandler(async (req, res) => {
   });
   if (!existing) throw new NotFoundError('Driver not found');
 
+  const { firstName, lastName, email, phone, licenseNumber, notes, status } = req.body;
   const updated = await prisma.driver.update({
     where: { id: req.params.id },
-    data: req.body,
+    data: {
+      ...(firstName !== undefined && { firstName }),
+      ...(lastName !== undefined && { lastName }),
+      ...(email !== undefined && { email }),
+      ...(phone !== undefined && { phone }),
+      ...(licenseNumber !== undefined && { licenseNumber }),
+      ...(notes !== undefined && { notes }),
+      ...(status !== undefined && { status }),
+    },
   });
   res.json({ status: 'success', data: updated });
+}));
+
+router.patch('/:id/toggle-active', asyncHandler(async (req, res) => {
+  const existing = await prisma.driver.findFirst({
+    where: { id: req.params.id, tenantId: req.user.activeTenantId },
+  });
+  if (!existing) throw new NotFoundError('Driver not found');
+
+  const newStatus = existing.status === 'active' ? 'inactive' : 'active';
+  const updated = await prisma.driver.update({
+    where: { id: req.params.id },
+    data: { status: newStatus },
+  });
+  res.json({ status: 'success', data: updated });
+}));
+
+router.post('/bulk', asyncHandler(async (req, res) => {
+  const { op, ids } = req.body;
+  if (!Array.isArray(ids) || ids.length === 0) {
+    return res.status(400).json({ status: 'error', message: 'No driver IDs provided' });
+  }
+
+  const where = { id: { in: ids }, tenantId: req.user.activeTenantId };
+  if (op === 'delete') {
+    await prisma.driver.deleteMany({ where });
+  } else if (op === 'activate') {
+    await prisma.driver.updateMany({ where, data: { status: 'active' } });
+  } else if (op === 'deactivate') {
+    await prisma.driver.updateMany({ where, data: { status: 'inactive' } });
+  } else {
+    return res.status(400).json({ status: 'error', message: 'Invalid operation' });
+  }
+
+  res.json({ status: 'success', data: { message: `Bulk ${op} completed for ${ids.length} drivers` } });
 }));
 
 router.delete('/:id', asyncHandler(async (req, res) => {

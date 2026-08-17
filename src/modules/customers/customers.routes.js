@@ -9,8 +9,22 @@ router.use(authenticate);
 router.use(requireTenant);
 
 router.get('/', asyncHandler(async (req, res) => {
+  const { search } = req.query;
+  const where = { tenantId: req.user.activeTenantId };
+
+  if (search && search.trim()) {
+    const s = search.trim();
+    where.OR = [
+      { firstName: { contains: s, mode: 'insensitive' } },
+      { lastName: { contains: s, mode: 'insensitive' } },
+      { email: { contains: s, mode: 'insensitive' } },
+      { phone: { contains: s, mode: 'insensitive' } },
+      { companyName: { contains: s, mode: 'insensitive' } },
+    ];
+  }
+
   const customers = await prisma.customer.findMany({
-    where: { tenantId: req.user.activeTenantId },
+    where,
     orderBy: { createdAt: 'desc' },
   });
   res.json({ status: 'success', data: customers });
@@ -33,11 +47,11 @@ router.post('/', asyncHandler(async (req, res) => {
       firstName,
       lastName,
       email,
-      phone,
-      companyName,
-      vatNumber,
+      phone: phone || null,
+      companyName: companyName || null,
+      vatNumber: vatNumber || null,
       creditLimit: creditLimit ? parseFloat(creditLimit) : 0,
-      notes,
+      notes: notes || null,
     },
   });
   res.status(201).json({ status: 'success', data: customer });
@@ -49,9 +63,19 @@ router.patch('/:id', asyncHandler(async (req, res) => {
   });
   if (!existing) throw new NotFoundError('Customer not found');
 
+  const { firstName, lastName, email, phone, companyName, vatNumber, creditLimit, notes } = req.body;
   const updated = await prisma.customer.update({
     where: { id: req.params.id },
-    data: req.body,
+    data: {
+      ...(firstName !== undefined && { firstName }),
+      ...(lastName !== undefined && { lastName }),
+      ...(email !== undefined && { email }),
+      ...(phone !== undefined && { phone }),
+      ...(companyName !== undefined && { companyName }),
+      ...(vatNumber !== undefined && { vatNumber }),
+      ...(creditLimit !== undefined && { creditLimit: parseFloat(creditLimit) }),
+      ...(notes !== undefined && { notes }),
+    },
   });
   res.json({ status: 'success', data: updated });
 }));
