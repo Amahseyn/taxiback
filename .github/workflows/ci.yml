@@ -11,8 +11,9 @@ on:
       - master
 
 jobs:
-  build:
+  build-and-test:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -20,14 +21,23 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 18
-          cache: npm
+          node-version: '18'
+          cache: 'npm'
 
       - name: Install dependencies
         run: npm ci
 
       - name: Validate Prisma schema
+        env:
+          DATABASE_URL: "postgresql://user:password@localhost:5432/dbname"
         run: npx prisma validate
+
+      - name: Generate Prisma client
+        env:
+          DATABASE_URL: "postgresql://user:password@localhost:5432/dbname"
+        run: npx prisma generate
+
 
       - name: Run lint
         run: npm run lint
+

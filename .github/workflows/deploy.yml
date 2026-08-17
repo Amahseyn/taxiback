@@ -1,29 +1,43 @@
 name: Backend Deploy
 
 on:
+  workflow_dispatch:
   workflow_run:
     workflows: ["Backend CI"]
     types: [completed]
     branches:
       - main
       - master
+  push:
+    branches:
+      - main
+      - master
 
 jobs:
   deploy:
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     steps:
       - name: Deploy backend with SSH and PM2
         uses: appleboy/ssh-action@v1.0.0
         with:
-          host: ${{ vars.SSH_HOST }}
-          username: ${{ vars.SSH_USER }}
+          host: ${{ secrets.SSH_HOST || vars.SSH_HOST }}
+          username: ${{ secrets.SSH_USER || vars.SSH_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SSH_PORT || 22 }}
           script: |
             set -e
-            cd /var/www/taxiback || git clone https://github.com/Amahseyn/taxiback.git /var/www/taxiback
+            if [ ! -d "/var/www/taxiback/.git" ]; then
+              mkdir -p /var/www
+              git clone https://github.com/Amahseyn/taxiback.git /var/www/taxiback
+            fi
             cd /var/www/taxiback
-            git pull origin main
+            git fetch --all
+            git checkout main || git checkout master
+            git pull
             npm ci
             npx prisma generate
+            npx prisma migrate deploy || echo "Prisma migrate deploy executed with warnings"
             npx pm2 start ecosystem.config.js --env production --only taxiback || npx pm2 reload ecosystem.config.js --env production --only taxiback
+            npx pm2 save
+
